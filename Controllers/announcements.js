@@ -78,9 +78,10 @@ const getAnnouncements = asyncHandler(
 const getAnnouncementById =
   asyncHandler(async (req, res) => {
     const announcement =
-      await Announcement.findById(
-        req.params.id
-      )
+      await Announcement.findOne({
+      _id:  req.params.id,
+      isDeleted:false
+  })
         .populate(
           "createdBy",
           "fullName"
@@ -109,9 +110,10 @@ const getAnnouncementById =
 const updateAnnouncement =
   asyncHandler(async (req, res) => {
     const announcement =
-      await Announcement.findById(
-        req.params.id
-      );
+      await Announcement.findOne({
+       _id: req.params.id,
+        isDeleted:false
+  });
 
     if (!announcement) {
       return res.status(404).json({
@@ -122,14 +124,19 @@ const updateAnnouncement =
     }
 
     const updatedAnnouncement =
-      await Announcement.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+   await Announcement.findOneAndUpdate(
+  {
+    _id: req.params.id,
+    isDeleted: false,
+  },
+  {
+    $set: req.body,
+  },
+  {
+    new: true,
+    runValidators: true,
+  }
+);
 
     res.status(200).json({
       success: true,
@@ -145,9 +152,10 @@ const updateAnnouncement =
 const deleteAnnouncement =
   asyncHandler(async (req, res) => {
     const announcement =
-      await Announcement.findById(
-        req.params.id
-      );
+      await Announcement.findOne({
+       _id: req.params.id,
+        isDeleted:false
+  });
 
     if (!announcement) {
       return res.status(404).json({
@@ -158,7 +166,8 @@ const deleteAnnouncement =
     }
 
     announcement.isDeleted = true;
-
+    announcement.deletedAt=new Date();
+    announcement.deletedBy=req.user._id
     await announcement.save();
 
     res.status(200).json({
@@ -174,10 +183,15 @@ const deleteAnnouncement =
  */
 const getBatchAnnouncements =
   asyncHandler(async (req, res) => {
-   const batch = await Batch.findById(
-  req.params.batchId
+   const batch = await Batch.findOne(
+ { _id:req.params.batchId, isDeleted:false}
 ).select("course");
-
+if (!batch) {
+  return res.status(404).json({
+    success: false,
+    message: "Batch not found",
+  });
+}
 const announcements =
   await Announcement.find({
     isDeleted: false,
@@ -243,9 +257,17 @@ const getSystemAnnouncements =
   asyncHandler(async (req, res) => {
     const announcements =
       await Announcement.find({
-        targetType: "system",
-        isDeleted: false,
-      })
+  isDeleted: false,
+  $or: [
+    {
+      targetType: "course",
+      course: req.params.courseId,
+    },
+    {
+      targetType: "system",
+    },
+  ],
+})
         .populate(
           "createdBy",
           "fullName"

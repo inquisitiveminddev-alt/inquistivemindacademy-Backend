@@ -279,7 +279,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-const user = await User.findOne({ email }).select("+password");
+const user = await User.findOne({ email ,isDeleted:false }).select("+password");
 
 if (!user) {
   return res.status(401).json({
@@ -557,9 +557,10 @@ const updatePassword = asyncHandler(
       });
     }
 
-    const user = await User.findById(
-      req.user._id
-    ).select("+password");
+    const user = await User.findOne({
+    _id:  req.user._id,
+    isDeleted:false
+  }).select("+password");
 
     if (!user) {
       return res.status(404).json({

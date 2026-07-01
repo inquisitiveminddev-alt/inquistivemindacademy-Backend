@@ -65,7 +65,7 @@ const getUsers = asyncHandler(async (req, res) => {
     default:
       sortQuery.createdAt = -1;
   }
-
+   filter.isDeleted=false
   const [users, totalUsers] = await Promise.all([
     User.find(filter)
       .select("-password -refreshTokens")
@@ -100,7 +100,10 @@ const approveUser = asyncHandler(async (req, res) => {
   try {
     session.startTransaction();
 
-     user = await User.findById(id).session(session);
+     user = await User.findOne({
+    _id:  id,
+    isDeleted:false
+    }).session(session);
 
     if (!user) {
       await session.abortTransaction();
@@ -121,6 +124,7 @@ const approveUser = asyncHandler(async (req, res) => {
     if (user.role === "student") {
       const existingStudent = await Student.findOne({
         user: user._id,
+          isDeleted:false
       }).session(session);
 
       if (!existingStudent) {
@@ -138,6 +142,7 @@ const approveUser = asyncHandler(async (req, res) => {
     if (user.role === "teacher") {
       const existingTeacher = await Teacher.findOne({
         user: user._id,
+          isDeleted:false
       }).session(session);
 
       if (!existingTeacher) {
@@ -202,7 +207,10 @@ const rejectUser = asyncHandler(async (req, res) => {
   try {
     session.startTransaction();
 
-    user = await User.findById(id).session(session);
+    user = await User.findOne({
+    _id:  id,
+      isDeleted:false
+    }).session(session);
 
     if (!user) {
       await session.abortTransaction();
@@ -288,7 +296,10 @@ const blockUser = asyncHandler(async (req, res) => {
   try {
     session.startTransaction();
 
-    user = await User.findById(id).session(session);
+    user = await User.findOne({
+    _id:id,
+      isDeleted:false
+    }).session(session);
 
     if (!user) {
       await session.abortTransaction();
@@ -372,7 +383,10 @@ const unblockUser = asyncHandler(async (req, res) => {
   try {
     session.startTransaction();
 
-    user = await User.findById(id).session(session);
+    user = await User.findOne({
+    _id:  id,
+      isDeleted:false
+    }).session(session);
 
     if (!user) {
       await session.abortTransaction();
@@ -443,7 +457,7 @@ const getUserById = asyncHandler(async (req, res) => {
     });
   }
 
-  const user = await User.findById(id)
+  const user = await User.findOne({_id:id,  isDeleted:false})
     .select("-password -refreshToken");
 
   if (!user) {
@@ -476,7 +490,7 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     }
   }
 
-  const user = await User.findById(id);
+  const user = await User.findOne({_id:id, isDeleted:false});
 
   if (!user) {
     return res.status(404).json({
@@ -485,8 +499,12 @@ const updateUserByAdmin = asyncHandler(async (req, res) => {
     });
   }
 
-  const updatedUser = await User.findByIdAndUpdate(
-    id,
+  const updatedUser = await User.findOneAndUpdate(
+    {
+      _id:id,
+        isDeleted:false
+
+    },
     { $set: updates },
     {
       new: true,
@@ -517,37 +535,43 @@ const getDashboardStats = asyncHandler(
       totalBatches,
       activeBatches,
     ] = await Promise.all([
-      Student.countDocuments(),
+      Student.countDocuments({ isDeleted:false}),
 
       User.countDocuments({
         role: "student",
         approvalStatus: "approved",
+          isDeleted:false
       }),
       User.countDocuments({
         role: "teacher",
         approvalStatus: "approved",
+          isDeleted:false
       }),
 
       User.countDocuments({
         role: "student",
         approvalStatus: "pending",
+          isDeleted:false
       }),
 
       User.countDocuments({
         role: "student",
         isBlocked: true,
+          isDeleted:false
       }),
 
-      Course.countDocuments(),
+      Course.countDocuments({  isDeleted:false}),
 
       Course.countDocuments({
         status: "published",
+          isDeleted:false
       }),
 
-      Batch.countDocuments(),
+      Batch.countDocuments({  isDeleted:false}),
 
       Batch.countDocuments({
         status: "active",
+          isDeleted:false
       }),
     ]);
 
@@ -572,7 +596,7 @@ totalTeachers,
 
 
 const getRecentEnrollments = asyncHandler(async (req, res) => {
-  const batches = await Batch.find()
+  const batches = await Batch.find({  isDeleted:false})
     .populate("course", "title")
     .populate(
       "students",
@@ -622,7 +646,7 @@ const classes=await ClassLink.find({isDeleted:false}).sort({meetingDate:-1}).lim
 });
 const getallAnnouncement = asyncHandler(async (req, res) => {
 
-const announcements=await Announcement.find({isDeleted:false}).sort({meetingDate:-1}).limit(5)
+const announcements=await Announcement.find({isDeleted:false}).sort({ createdAt: -1 }).limit(5)
 
   return res.status(200).json({
     success: true,
@@ -630,8 +654,121 @@ const announcements=await Announcement.find({isDeleted:false}).sort({meetingDate
   });
 });
 
+const deleteUserByAdmin = asyncHandler(async (req, res) => {
+  const { id } = req.params;
 
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    const user = await User.findOne({
+      _id: id,
+      isDeleted: false,
+    }).session(session);
+
+    if (!user) {
+      await session.abortTransaction();
+
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    // Prevent deleting yourself
+    if (user._id.toString() === req.user._id.toString()) {
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete your own account.",
+      });
+    }
+
+    // Soft delete user
+    user.isDeleted = true;
+    user.deletedAt=new Date()
+    user.deletedBy=req.user._id
+    await user.save({ session });
+
+    if (user.role === "student") {
+      await Student.findOneAndUpdate(
+        {
+          user: user._id,
+          isDeleted: false,
+        },
+        {
+          $set: {
+            isDeleted: true,
+            deletedAt: new Date(),
+deletedBy: req.user._id,
+          },
+        },
+        { session }
+      );
+
+      await Batch.updateMany(
+        {
+       
+          students: user._id,
+          isDeleted: false,
+        },
+        {
+          $pull: {
+            students: user._id,
+          },
+        },
+        { session }
+      );
+    }
+
+    if (user.role === "teacher") {
+      await Teacher.findOneAndUpdate(
+        {
+          user: user._id,
+      
+          isDeleted: false,
+        },
+        {
+          $set: {
+            isDeleted: true,
+            deletedAt: new Date(),
+deletedBy: req.user._id,
+          },
+        },
+        { session }
+      );
+
+      await Batch.updateMany(
+        {
+       
+          trainers: user._id,
+          isDeleted: false,
+        },
+        {
+          $pull: {
+            trainers: user._id,
+          },
+        },
+        { session }
+      );
+    }
+
+    await session.commitTransaction();
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully.",
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+});
 
 module.exports = {
-  getUsers,approveUser,getallClasses,getallAnnouncement ,getRecentEnrollments,rejectUser,blockUser,unblockUser,getUserById,updateUserByAdmin,getDashboardStats
+  getUsers,approveUser,getallClasses,getallAnnouncement,deleteUserByAdmin ,getRecentEnrollments,rejectUser,blockUser,unblockUser,getUserById,updateUserByAdmin,getDashboardStats
 };

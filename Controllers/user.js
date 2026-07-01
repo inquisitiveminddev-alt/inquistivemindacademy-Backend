@@ -13,7 +13,7 @@ const updateProfileImage = asyncHandler(async (req, res) => {
   }
 
   // Get current user
-  const user = await User.findById(req.user._id);
+  const user = await User.findOne({_id:req.user._id, isDeleted:false});
 
   if (!user) {
     return res.status(404).json({

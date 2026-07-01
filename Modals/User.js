@@ -94,9 +94,22 @@ blockReason: {
       default: "email",
     },
    
+     // Soft Delete
     isDeleted: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
     approvalStatus: {
   type: String,

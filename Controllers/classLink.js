@@ -4,9 +4,10 @@ const asyncHandler = require("../Utils/asyncHandler");
 
 const createClassLink = asyncHandler(async (req, res) => {
  
-  const batch = await Batch.findById(
-    req.params.batchId
-  );
+  const batch = await Batch.findOne(
+ {  _id: req.params.batchId,
+  isDeleted:false
+ } );
 
   if (!batch) {
     return res.status(404).json({
@@ -14,7 +15,14 @@ const createClassLink = asyncHandler(async (req, res) => {
       message: "Batch not found.",
     });
   }
-  const existingClassLinks=await ClassLink.countDocuments({batch: batch._id});
+  const lastClass = await ClassLink.findOne({
+  batch: batch._id,
+  isDeleted: false,
+})
+.sort({ classNumber: -1 })
+.select("classNumber");
+
+const classNumber = lastClass ? lastClass.classNumber + 1 : 1;
   const classLink = await ClassLink.create({
     title: req.body.title,
     meetingLink: req.body.meetingLink,
@@ -22,7 +30,7 @@ const createClassLink = asyncHandler(async (req, res) => {
     description: req.body.description,
     batch: batch._id,
     createdBy: req.user._id,
-    classNumber:existingClassLinks+1
+    classNumber
   });
 
   res.status(201).json({
@@ -33,8 +41,21 @@ const createClassLink = asyncHandler(async (req, res) => {
 });
 const getClassLinks = asyncHandler(
   async (req, res) => {
+const batch = await Batch.findOne({
+  _id: req.params.batchId,
+  isDeleted: false,
+});
+
+if (!batch) {
+  return res.status(404).json({
+    success: false,
+    message: "Batch not found.",
+  });
+}
+
     const classLinks = await ClassLink.find({
       batch: req.params.batchId,
+       isDeleted:false
     })
       .populate("createdBy", "fullName")
       .sort({ meetingDate: 1 });
@@ -48,9 +69,10 @@ const getClassLinks = asyncHandler(
 );
 const getClassLinkById = asyncHandler(
   async (req, res) => {
-    const classLink = await ClassLink.findById(
-      req.params.classLinkId
-    );
+    const classLink = await ClassLink.findOne({
+   _id: req.params.classLinkId,
+    isDeleted:false
+  });
 
     if (!classLink) {
       return res.status(404).json({
@@ -68,9 +90,10 @@ const getClassLinkById = asyncHandler(
 const updateClassLink = asyncHandler(
   async (req, res) => {
     const classLink =
-      await ClassLink.findByIdAndUpdate(
-        req.params.classLinkId,
-        {
+      await ClassLink.findOneAndUpdate({
+        _id:req.params.classLinkId,
+         isDeleted:false
+       } ,{
           $set: req.body,
         },
         {
@@ -94,25 +117,28 @@ const updateClassLink = asyncHandler(
     });
   }
 );
-const deleteClassLink = asyncHandler(
-  async (req, res) => {
-    const classLink =
-      await ClassLink.findByIdAndDelete(
-        req.params.classLinkId
-      );
+const deleteClassLink = asyncHandler(async (req, res) => {
+  const classLink = await ClassLink.findOne({
+    _id: req.params.classLinkId,
+    isDeleted: false,
+  });
 
-    if (!classLink) {
-      return res.status(404).json({
-        success: false,
-        message: "Class link not found.",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message:
-        "Class link deleted successfully.",
+  if (!classLink) {
+    return res.status(404).json({
+      success: false,
+      message: "Class link not found.",
     });
   }
-);
+
+  classLink.isDeleted = true;
+  classLink.deletedAt = new Date();
+  classLink.deletedBy = req.user._id;
+
+  await classLink.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Class link deleted successfully.",
+  });
+});
 module.exports={createClassLink,getClassLinks,getClassLinkById,deleteClassLink,updateClassLink}

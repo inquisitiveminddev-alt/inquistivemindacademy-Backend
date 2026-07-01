@@ -13,18 +13,12 @@ router.get("/:batchId/byId", getBatchById);
 router.patch("/:batchId/update", updateBatch);
 
 router.delete("/:courseId/batches/:batchId", deleteBatch);
-router.post(
-  "/:batchId/students",
-  addStudentToBatch
-);
+
 
 router.get(
   "/:batchId/students",
   getBatchStudents
 );
 
-router.delete(
-  "/:batchId/students/:studentId",
-  removeStudentFromBatch
-);
+
 module.exports=router

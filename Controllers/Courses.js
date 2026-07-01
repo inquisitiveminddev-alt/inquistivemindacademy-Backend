@@ -1,8 +1,10 @@
 const Course = require("../Modals/Courses");
+const Batch = require("../Modals/Batches");
 const asyncHandler = require("../Utils/asyncHandler");
 const slugify = require("slugify");
 const generateUniqueSlug = require("../Utils/generateUniqueSlug");
 const uploadToCloudinary = require("../Utils/Cloudinary");
+const cloudinary = require("../Config/cloudinary");
 const createCourse = asyncHandler(
   async (req, res) => {
     let thumbnail = {
@@ -68,7 +70,10 @@ const getCourses = asyncHandler(async (req, res) => {
   });
 });
 const getCourseById = asyncHandler(async (req, res) => {
-  const course = await Course.findById(req.params.courseId)
+  const course = await Course.findOne({
+   _id: req.params.courseId,
+  isDeleted:false
+  })
     .populate("createdBy", "fullName email")
     .populate("batches");
 
@@ -85,27 +90,11 @@ const getCourseById = asyncHandler(async (req, res) => {
   });
 });
 const updateCourse = asyncHandler(async (req, res) => {
-  const updateData = {
-  ...req.body,
-};
-
-if (req.body.title) {
-  updateData.slug = await generateUniqueSlug(
-          req.body.title,
-          req.params.courseId
-        );}
-
-const course = await Course.findByIdAndUpdate(
-  req.params.courseId,
-  {
-    $set: updateData,
-  },
-  {
-    new: true,
-    runValidators: true,
-  }
-);
- 
+  console.log(req.body)
+  const course = await Course.findOne({
+    _id: req.params.courseId,
+    isDeleted: false,
+  });
 
   if (!course) {
     return res.status(404).json({
@@ -113,17 +102,59 @@ const course = await Course.findByIdAndUpdate(
       message: "Course not found.",
     });
   }
+
+  const updateData = {
+    ...req.body,
+  };
+
+  if (req.body.title) {
+    updateData.slug = await generateUniqueSlug(
+      req.body.title,
+      req.params.courseId
+    );
+  }
+
+  // Replace thumbnail only if a new image is uploaded
+  if (req.file) {
+    // Delete old image from Cloudinary
+    if (course.thumbnail?.public_id) {
+      await cloudinary.uploader.destroy(course.thumbnail.public_id);
+    }
+
+    // Upload new image
+    const result = await uploadToCloudinary(
+      req.file.buffer,
+      "courses",
+    );
+
+    updateData.thumbnail = {
+      public_id: result.public_id,
+      url: result.secure_url,
+    };
+  }
+
+  const updatedCourse = await Course.findByIdAndUpdate(
+    course._id,
+    {
+      $set: updateData,
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
 
   res.status(200).json({
     success: true,
     message: "Course updated successfully.",
-    course,
+    course: updatedCourse,
   });
 });
 const deleteCourse = asyncHandler(async (req, res) => {
-  const course = await Course.findByIdAndDelete(
-    req.params.courseId
-  );
+  const course = await Course.findOne({
+    _id: req.params.courseId,
+    isDeleted: false,
+  });
 
   if (!course) {
     return res.status(404).json({
@@ -132,15 +163,35 @@ const deleteCourse = asyncHandler(async (req, res) => {
     });
   }
 
+  course.isDeleted = true;
+  course.deletedAt = new Date();
+  course.deletedBy = req.user._id;
+
+  await course.save();
+
+  await Batch.updateMany(
+  {
+    course: course._id,
+    isDeleted: false,
+  },
+  {
+    $set: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: req.user._id,
+    },
+  }
+);
   res.status(200).json({
     success: true,
     message: "Course deleted successfully.",
   });
 });
 const publishCourse = asyncHandler(async (req, res) => {
-  const course = await Course.findByIdAndUpdate(
-    req.params.courseId,
-    {
+  const course = await Course.findOneAndUpdate({
+   _id: req.params.courseId,
+   isDeleted:false
+   }, {
       status: "published",
     },
     {
@@ -162,9 +213,10 @@ const publishCourse = asyncHandler(async (req, res) => {
   });
 });
 const archiveCourse = asyncHandler(async (req, res) => {
-  const course = await Course.findByIdAndUpdate(
-    req.params.courseId,
-    {
+  const course = await Course.findOneAndUpdate({
+   _id: req.params.courseId,
+    isDeleted:false
+   }, {
       status: "archived",
     },
     {

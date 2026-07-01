@@ -3,8 +3,11 @@ const Batch = require("../Modals/Batches");
 const Course = require("../Modals/Courses");
 const asyncHandler = require("../Utils/asyncHandler");
 const createBatch = asyncHandler(async (req, res) => {
-  const course = await Course.findById(req.params.courseId);
-
+  const course = await Course.findOne({
+     name: req.body.name,
+   _id: req.params.courseId,
+   isDeleted:false
+  });
   if (!course) {
     return res.status(404).json({
       success: false,
@@ -29,17 +32,26 @@ const createBatch = asyncHandler(async (req, res) => {
 });
 const getBatches = asyncHandler(async (req, res) => {
 
-  const course = await Course.findOne({
-    slug: req.params.slug,
-  })
-  console.log(course)
+ 
+const course = await Course.findOne({
+  slug: req.params.slug,
+  isDeleted: false,
+});
+
+if (!course) {
+  return res.status(404).json({
+    success: false,
+    message: "Course not found.",
+  });
+}
   const batches = await Batch.find({
-    course:course._id
+    course:course._id,
+     isDeleted:false
   })
     .populate("students")
     .populate("course","title")
     .sort("-createdAt");
-console.log(batches)
+
   res.status(200).json({
     success: true,
     count: batches.length,
@@ -47,7 +59,10 @@ console.log(batches)
   });
 });
 const getBatchById = asyncHandler(async (req, res) => {
-  const batch = await Batch.findById(req.params.batchId)
+  const batch = await Batch.findOne({
+   _id: req.params.batchId,
+    isDeleted:false
+  })
     .populate("course")
     .populate("students")
     .populate("trainers")
@@ -65,8 +80,10 @@ const getBatchById = asyncHandler(async (req, res) => {
   });
 });
 const updateBatch = asyncHandler(async (req, res) => {
-  const batch = await Batch.findByIdAndUpdate(
-    req.params.batchId,
+  const batch = await Batch.findOneAndUpdate({
+   _id: req.params.batchId,
+    isDeleted:false
+  },
     {
       $set: req.body,
     },
@@ -90,9 +107,10 @@ const updateBatch = asyncHandler(async (req, res) => {
   });
 });
 const deleteBatch = asyncHandler(async (req, res) => {
-  const batch = await Batch.findByIdAndDelete(
-    req.params.batchId
-  );
+  const batch = await Batch.findOne({
+    _id: req.params.batchId,
+    isDeleted: false,
+  });
 
   if (!batch) {
     return res.status(404).json({
@@ -101,6 +119,13 @@ const deleteBatch = asyncHandler(async (req, res) => {
     });
   }
 
+  batch.isDeleted = true;
+  batch.deletedAt = new Date();
+  batch.deletedBy = req.user._id;
+
+  await batch.save();
+
+  // Optional: Remove the batch from the course
   await Course.findByIdAndUpdate(batch.course, {
     $pull: {
       batches: batch._id,
@@ -113,68 +138,13 @@ const deleteBatch = asyncHandler(async (req, res) => {
   });
 });
 
-const addStudentToBatch = asyncHandler(
-  async (req, res) => {
-    const { studentId } = req.body;
 
-    const batch = await Batch.findById(
-      req.params.batchId
-    );
-
-    if (!batch) {
-      return res.status(404).json({
-        success: false,
-        message: "Batch not found.",
-      });
-    }
-
-    const student = await Student.findById(
-      studentId
-    );
-// also updated student count in couse 
-
-
-
-
-
-
-
-
-
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        message: "Student not found.",
-      });
-    }
-
-    const alreadyAdded =
-      batch.students.includes(studentId);
-
-    if (alreadyAdded) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Student already exists in this batch.",
-      });
-    }
-
-    batch.students.push(studentId);
-
-    await batch.save();
-
-    res.status(200).json({
-      success: true,
-      message:
-        "Student added to batch successfully.",
-    });
-  }
-);
 const getBatchStudents = asyncHandler(
   async (req, res) => {
-    const batch = await Batch.findById(
-      req.params.batchId
-    ).populate({
+    const batch = await Batch.findOne({
+     _id: req.params.batchId,
+     isDeleted:false
+    }).populate({
       path: "students",
       populate: {
         path: "user",
@@ -197,30 +167,6 @@ const getBatchStudents = asyncHandler(
     });
   }
 );
-const removeStudentFromBatch =
-  asyncHandler(async (req, res) => {
-    const batch = await Batch.findById(
-      req.params.batchId
-    );
 
-    if (!batch) {
-      return res.status(404).json({
-        success: false,
-        message: "Batch not found.",
-      });
-    }
 
-    batch.students.pull(
-      req.params.studentId
-    );
-
-    await batch.save();
-
-    res.status(200).json({
-      success: true,
-      message:
-        "Student removed from batch successfully.",
-    });
-  });
-
-module.exports={createBatch,updateBatch,deleteBatch,getBatchById,getBatches,addStudentToBatch,removeStudentFromBatch,getBatchStudents}
+module.exports={createBatch,updateBatch,deleteBatch,getBatchById,getBatches,getBatchStudents}
