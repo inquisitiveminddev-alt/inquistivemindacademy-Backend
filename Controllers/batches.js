@@ -4,7 +4,6 @@ const Course = require("../Modals/Courses");
 const asyncHandler = require("../Utils/asyncHandler");
 const createBatch = asyncHandler(async (req, res) => {
   const course = await Course.findOne({
-     name: req.body.name,
    _id: req.params.courseId,
    isDeleted:false
   });
