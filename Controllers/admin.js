@@ -637,12 +637,22 @@ const enrollments = Array.from(
 });
 const getallClasses = asyncHandler(async (req, res) => {
 
-const classes=await ClassLink.find({isDeleted:false}).sort({meetingDate:-1}).limit(5)
+const classes = await ClassLink.find({ isDeleted: false })
+  .populate({
+    path: "batch",
+    match: { isDeleted: false },
+  })
+  .sort({ meetingDate: -1 });
 
-  return res.status(200).json({
-    success: true,
-    classes, // latest 20
-  });
+const filteredClasses = classes
+  .filter((cls) => cls.batch)
+  .slice(0, 5);
+
+return res.status(200).json({
+  success: true,
+  classes: filteredClasses,
+});
+
 });
 const getallAnnouncement = asyncHandler(async (req, res) => {
 
