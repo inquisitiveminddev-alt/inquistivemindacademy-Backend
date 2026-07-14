@@ -3,7 +3,7 @@ const asyncHandler = require("../Utils/asyncHandler");
 
 const saveStudentLead =asyncHandler(async (req, res) => {
 
-    const { name,	phone,	email,	goal,	subject,	language,	level,	focus,	budget,	availability,	timeSlot } = req.body;
+    const { name,	phone,	email,	goal,	subject,	language,	level,		availability,	timeSlot } = req.body;
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
@@ -12,7 +12,7 @@ const saveStudentLead =asyncHandler(async (req, res) => {
       requestBody: {
         values: [
           [
-          name,	phone,	email,	goal,	subject,	language,	level,	focus,	budget,	availability.join(","),	timeSlot,
+          name,	phone,	email,	goal,	subject,	language,	level,	availability.join(","),	timeSlot,
         new Date().toLocaleString(),
           ],
         ],
@@ -28,7 +28,7 @@ const saveStudentLead =asyncHandler(async (req, res) => {
 })
 const saveTeacherLead =asyncHandler(async (req, res) => {
 
-    const { name,	email,	phone,	subject,	experience,	studentLevel,	mode,	availability,	timeSlot,	earnings,	qualifications } = req.body;
+    const { name,	email,	phone,	subject,	experience,	studentLevel,	mode,	availability,	timeSlot,	qualifications } = req.body;
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.GOOGLE_SHEET_TEACHER_ID,
@@ -37,7 +37,7 @@ const saveTeacherLead =asyncHandler(async (req, res) => {
       requestBody: {
         values: [
           [
-          name,	email,	phone,	subject,	experience,	studentLevel,	mode,availability.join(','),	timeSlot,	earnings,	qualifications,
+          name,	email,	phone,	subject,	experience,	studentLevel,	mode,availability.join(','),	timeSlot,	qualifications,
         new Date().toLocaleString(),
           ],
         ],
