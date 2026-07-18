@@ -12,7 +12,7 @@ const saveStudentLead =asyncHandler(async (req, res) => {
       requestBody: {
         values: [
           [
-          name,	phone,	email,	goal,	subject,	language,	level,	availability.join(","),	timeSlot,
+          name,	phone,	email,	goal,	subject,	language,	level,	availability.join(","),	timeSlot.join(','),
         new Date().toLocaleString(),
           ],
         ],
@@ -37,7 +37,7 @@ const saveTeacherLead =asyncHandler(async (req, res) => {
       requestBody: {
         values: [
           [
-          name,	email,	phone,	subject,	experience,	studentLevel,	mode,availability.join(','),	timeSlot,	qualifications,
+          name,	email,	phone,	subject,	experience,	studentLevel,	mode,availability.join(','),	timeSlot.join(','),	qualifications,
         new Date().toLocaleString(),
           ],
         ],
