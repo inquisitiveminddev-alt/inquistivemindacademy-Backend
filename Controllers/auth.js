@@ -74,6 +74,21 @@ const createUser = asyncHandler(async (req, res) => {
     emailVerified: true,
     approvalStatus: "pending",
   });
+  await sendEmail({
+  to: ["sachinsingla1995@gmail.com", "inquisitivemindacademy@gmail.com"],
+  subject: "🆕 New User Account Created",
+  html: `
+    <h2>New User Account Created</h2>
+
+    <table border="1" cellpadding="8" cellspacing="0">
+      <tr><td><b>Name</b></td><td>${fullName}</td></tr>
+      <tr><td><b>Email</b></td><td>${email}</td></tr>
+      <tr><td><b>Role</b></td><td>${role}</td></tr>
+    </table>
+
+    <p><strong>Account Created At:</strong> ${new Date().toLocaleString()}</p>
+  `,
+});
 
   return res.status(201).json({
     success: true,
