@@ -629,4 +629,96 @@ const updatePassword = asyncHandler(
 );
 
 
-module.exports ={createUser,updatePassword,sendOtp,verifyOtp,login,refreshAccessToken,logout,logoutAll}
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { verificationToken, newPassword } = req.body;
+
+  // 1. Validate required fields
+  if (!verificationToken || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: "Verification token and new password are required."
+    });
+  }
+
+  // 2. Verify the token generated after OTP verification
+  let decoded;
+
+  try {
+    decoded = jwt.verify(
+      verificationToken,
+      process.env.JWT_SECRET
+    );
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired verification token."
+    });
+  }
+
+  // 3. Ensure the token was issued for password recovery
+  if (
+    decoded.type !== "email-verification" ||
+    decoded.purpose !== "forgot-password" ||
+    !decoded.email
+  ) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid password reset token."
+    });
+  }
+
+  // 4. Find the account
+  const user = await User.findOne({
+    email: decoded.email,
+    isDeleted: false
+  }).select("+password");
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found."
+    });
+  }
+
+  // 5. Prevent reusing the current password
+  const isSamePassword = await bcrypt.compare(
+    newPassword,
+    user.password
+  );
+
+  if (isSamePassword) {
+    return res.status(400).json({
+      success: false,
+      message: "New password must be different from the current password."
+    });
+  }
+
+  // 6. Hash the new password
+  user.password = await bcrypt.hash(newPassword, 10);
+
+  // Reset failed-login lockout state
+  user.loginAttempts = 0;
+  user.lockUntil = null;
+
+  await user.save();
+
+  // 7. Invalidate all existing sessions
+  await Session.deleteMany({
+    user: user._id
+  });
+
+  // 8. Clear the current refresh-token cookie
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict"
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Password reset successfully. Please log in again."
+  });
+});
+
+
+module.exports ={createUser,updatePassword,sendOtp,verifyOtp,login,refreshAccessToken,logout,logoutAll,forgotPassword}
