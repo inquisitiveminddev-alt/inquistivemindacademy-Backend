@@ -1,8 +1,7 @@
 const express = require("express");
-const { getUsers, approveUser, rejectUser, blockUser, unblockUser, getUserById, updateUserByAdmin, getDashboardStats, getRecentEnrollments, getallClasses, getallAnnouncement, deleteUserByAdmin } = require("../Controllers/admin");
+const { getUsers,updateTeacherByAdmin, approveUser, rejectUser, blockUser, unblockUser, getUserById, updateUserByAdmin, getDashboardStats, getRecentEnrollments, getallClasses, getallAnnouncement, deleteUserByAdmin } = require("../Controllers/admin");
 const protect = require("../Middleware/protect");
 const authorize = require("../Middleware/authorize");
-
 const router = express.Router();
 router.get('/users',protect,authorize("admin"),getUsers)
 router.get('/user/:id',protect,authorize("admin"),getUserById)
@@ -16,4 +15,11 @@ router.patch('/user/:id/block',protect,authorize("admin"),blockUser)
 router.patch('/user/:id/unblock',protect,authorize("admin"),unblockUser)
 router.patch('/user/:id/update',protect,authorize("admin"),updateUserByAdmin)
 router.delete('/user/:id',protect,authorize("admin"),deleteUserByAdmin)
+
+router.patch(
+  "/teacher/:id/update",
+  protect,
+  authorize("admin"),
+  updateTeacherByAdmin
+);
 module.exports = router;

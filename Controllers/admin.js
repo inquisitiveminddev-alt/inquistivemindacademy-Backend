@@ -779,6 +779,141 @@ deletedBy: req.user._id,
   }
 });
 
+
+
+const updateTeacherByAdmin = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid user ID.",
+    });
+  }
+
+  // Fields belonging to the User model
+  const allowedUserFields = ["fullName", "phone"];
+
+  // Fields belonging to the Teacher model
+  const allowedTeacherFields = [
+    "city",
+    "gender",
+    "dateOfBirth",
+    "subject",
+    "experience",
+    "qualification",
+    "studentLevel",
+    "mode",
+    "bio",
+    "availability",
+    "timeSlot",
+  ];
+
+  const userUpdates = {};
+  const teacherUpdates = {};
+
+  for (const [key, value] of Object.entries(req.body)) {
+    if (allowedUserFields.includes(key)) {
+      userUpdates[key] = value;
+    } else if (allowedTeacherFields.includes(key)) {
+      teacherUpdates[key] = value;
+    }
+  }
+
+  if (
+    Object.keys(userUpdates).length === 0 &&
+    Object.keys(teacherUpdates).length === 0
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "No valid teacher profile fields provided.",
+    });
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    // Find the account using the User ID
+    const user = await User.findOne({
+      _id: id,
+      role: "teacher",
+      isDeleted: false,
+    }).session(session);
+
+    if (!user) {
+      await session.abortTransaction();
+
+      return res.status(404).json({
+        success: false,
+        message: "Teacher account not found.",
+      });
+    }
+
+    // Find the associated Teacher document
+    const teacher = await Teacher.findOne({
+      user: user._id,
+      isDeleted: false,
+    }).session(session);
+
+    if (!teacher) {
+      await session.abortTransaction();
+
+      return res.status(404).json({
+        success: false,
+        message: "Teacher profile not found.",
+      });
+    }
+
+    // Update account fields
+    Object.assign(user, userUpdates);
+
+    // Update teacher-specific fields
+    Object.assign(teacher, teacherUpdates);
+
+    await Promise.all([
+      user.save({ session }),
+      teacher.save({ session }),
+    ]);
+
+    await session.commitTransaction();
+
+    // Return the updated profile
+    const updatedUser = await User.findOne({
+      _id: id,
+      isDeleted: false,
+    })
+      .select("-password -refreshToken")
+      .lean();
+
+    const updatedTeacher = await Teacher.findOne({
+      user: id,
+      isDeleted: false,
+    })
+      .populate("courses")
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Teacher updated successfully.",
+      data: {
+        ...updatedUser,
+        ...updatedTeacher,
+        user: updatedUser,
+      },
+    });
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+});
+
 module.exports = {
-  getUsers,approveUser,getallClasses,getallAnnouncement,deleteUserByAdmin ,getRecentEnrollments,rejectUser,blockUser,unblockUser,getUserById,updateUserByAdmin,getDashboardStats
+  getUsers,approveUser,getallClasses,getallAnnouncement,deleteUserByAdmin ,getRecentEnrollments,rejectUser,blockUser,unblockUser,getUserById,updateUserByAdmin,getDashboardStats,updateTeacherByAdmin
 };
