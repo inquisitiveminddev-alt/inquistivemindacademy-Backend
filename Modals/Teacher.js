@@ -27,7 +27,7 @@ const teacherSchema = new mongoose.Schema(
       type: Date,
     },
 
-    // Teaching profile
+    // Teaching profile (French, German, English, Mathematics, Science, etc.)
     subject: {
       type: String,
       trim: true,
