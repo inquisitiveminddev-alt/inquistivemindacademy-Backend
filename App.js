@@ -32,6 +32,7 @@ app.use("/api/auth", require("./Routes/auth"));
 app.use("/api/admin", require("./Routes/admin"));
 app.use("/api/student", require("./Routes/student"));
 app.use("/api/teacher", require("./Routes/teacher"));
+app.use("/api/tutors", require("./Routes/tutorPublicRoutes"));
 app.use("/api/user", require("./Routes/user"));
 app.use("/api/courses", require("./Routes/courses"));
 app.use("/api/batches", require("./Routes/batches"));
@@ -44,4 +45,4 @@ app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 app.use(errorHandler)
-module.exports = app
+module.exports = app;

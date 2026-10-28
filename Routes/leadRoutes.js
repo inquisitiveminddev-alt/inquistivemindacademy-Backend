@@ -1,9 +1,10 @@
 const express = require("express");
-const { saveLead, saveStudentLead, saveTeacherLead } = require("../Controllers/leadController");
+const { saveStudentLead, saveTeacherLead } = require("../Controllers/leadController");
+const optionalAuth = require("../Middleware/optionalAuth");
 
 const router = express.Router();
 
-router.post("/students/save",saveStudentLead)
-router.post("/teacher/save",saveTeacherLead)
+router.post("/students/save", optionalAuth, saveStudentLead);
+router.post("/teacher/save", optionalAuth, saveTeacherLead);
 
-module.exports=router
+module.exports = router;

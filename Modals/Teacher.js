@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const teacherSchema = new mongoose.Schema(
@@ -20,7 +19,7 @@ const teacherSchema = new mongoose.Schema(
 
     gender: {
       type: String,
-      enum: ["male", "female", "other"],
+      default: "",
     },
 
     dateOfBirth: {
@@ -36,13 +35,7 @@ const teacherSchema = new mongoose.Schema(
 
     experience: {
       type: String,
-      enum: [
-        "Less than 1 Year",
-        "1 - 3 Years",
-        "3 - 5 Years",
-        "5+ Years",
-        "",
-      ],
+      trim: true,
       default: "",
     },
 
@@ -60,12 +53,7 @@ const teacherSchema = new mongoose.Schema(
 
     mode: {
       type: String,
-      enum: [
-        "Online Classes",
-        "Offline Classes",
-        "Hybrid Teaching",
-        "",
-      ],
+      trim: true,
       default: "",
     },
 
@@ -78,26 +66,82 @@ const teacherSchema = new mongoose.Schema(
 
     availability: {
       type: [String],
-      enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
       default: [],
     },
 
     timeSlot: {
       type: [String],
-      enum: [
-        "6:00 AM - 9:00 AM",
-        "9:00 AM - 12:00 PM",
-        "12:00 PM - 3:00 PM",
-        "3:00 PM - 6:00 PM",
-        "6:00 PM - 9:00 PM",
-        "9:00 PM - 11:00 PM",
-      ],
       default: [],
     },
 
     profileCompleted: {
       type: Boolean,
       default: false,
+    },
+
+    // Public directory & publication controls
+    isPublished: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
+
+    publishedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    headline: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+      default: "",
+    },
+
+    hourlyRate: {
+      min: { type: Number, default: 0 },
+      max: { type: Number, default: 0 },
+      currency: { type: String, default: "INR" },
+    },
+
+    rating: {
+      type: Number,
+      default: 5.0,
+      min: 0,
+      max: 5,
+    },
+
+    reviewsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    allowedPublicFields: {
+      type: [String],
+      default: [
+        "fullName",
+        "city",
+        "subject",
+        "experience",
+        "qualification",
+        "studentLevel",
+        "mode",
+        "bio",
+        "availability",
+        "timeSlot",
+        "profileImage",
+        "headline",
+        "hourlyRate",
+        "rating",
+        "reviewsCount",
+      ],
     },
 
     // Courses assigned to this teacher

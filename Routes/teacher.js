@@ -1,4 +1,3 @@
-
 const express = require("express");
 const protect = require("../Middleware/protect");
 const authorize = require("../Middleware/authorize");
@@ -8,9 +7,15 @@ const {
   updateProfile,
   getTeacherById,
   getTeacherCourses,
+  getPublicTutors,
+  getPublicTutorById,
 } = require("../Controllers/teacher");
 
 const router = express.Router();
+
+// Public endpoints (no authentication required)
+router.get("/public", getPublicTutors);
+router.get("/public/:id", getPublicTutorById);
 
 // Get logged-in teacher's profile
 router.get(

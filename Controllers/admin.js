@@ -9,6 +9,9 @@ const Announcement = require("../Modals/Announcement");
 
 const Course = require("../Modals/Courses");
 const Batch = require("../Modals/Batches");
+const TutorApplication = require("../Modals/TutorApplication");
+const StudentRequirement = require("../Modals/StudentRequirement");
+const TutorMatch = require("../Modals/TutorMatch");
 const mongoose = require("mongoose");
 
 const getUsers = asyncHandler(async (req, res) => {
@@ -140,20 +143,63 @@ const approveUser = asyncHandler(async (req, res) => {
     }
 
     if (user.role === "teacher") {
-      const existingTeacher = await Teacher.findOne({
+      let linkedTeacher = await Teacher.findOne({
         user: user._id,
-          isDeleted:false
+        isDeleted: false,
       }).session(session);
 
-      if (!existingTeacher) {
-        await Teacher.create(
+      const tutorApp = await TutorApplication.findOne({
+        $or: [{ user: user._id }, { email: user.email }],
+        isDeleted: false,
+      })
+        .sort({ createdAt: -1 })
+        .session(session);
+
+      if (!linkedTeacher) {
+        const createdTeachers = await Teacher.create(
           [
             {
               user: user._id,
+              subject: tutorApp?.subject || "General Teacher",
+              experience: tutorApp?.experience || "",
+              qualification: tutorApp?.qualification || "",
+              studentLevel: tutorApp?.studentLevel || "",
+              mode: tutorApp?.mode || "Online Classes",
+              availability: tutorApp?.availability || [],
+              timeSlot: tutorApp?.timeSlot || [],
+              city: tutorApp?.city || user.city || "",
+              bio: tutorApp?.bio || "",
+              profileCompleted: Boolean(tutorApp),
+              isPublished: false,
             },
           ],
           { session }
         );
+        linkedTeacher = createdTeachers[0];
+      } else if (tutorApp) {
+        if (!linkedTeacher.subject && tutorApp.subject) linkedTeacher.subject = tutorApp.subject;
+        if (!linkedTeacher.experience && tutorApp.experience) linkedTeacher.experience = tutorApp.experience;
+        if (!linkedTeacher.qualification && tutorApp.qualification) linkedTeacher.qualification = tutorApp.qualification;
+        if (!linkedTeacher.studentLevel && tutorApp.studentLevel) linkedTeacher.studentLevel = tutorApp.studentLevel;
+        if (!linkedTeacher.mode && tutorApp.mode) linkedTeacher.mode = tutorApp.mode;
+        if ((!linkedTeacher.availability || linkedTeacher.availability.length === 0) && tutorApp.availability) {
+          linkedTeacher.availability = tutorApp.availability;
+        }
+        if ((!linkedTeacher.timeSlot || linkedTeacher.timeSlot.length === 0) && tutorApp.timeSlot) {
+          linkedTeacher.timeSlot = tutorApp.timeSlot;
+        }
+        if (!linkedTeacher.city && tutorApp.city) linkedTeacher.city = tutorApp.city;
+        if (!linkedTeacher.bio && tutorApp.bio) linkedTeacher.bio = tutorApp.bio;
+        await linkedTeacher.save({ session });
+      }
+
+      if (tutorApp && tutorApp.status !== "approved") {
+        tutorApp.status = "approved";
+        tutorApp.user = user._id;
+        tutorApp.teacher = linkedTeacher._id;
+        tutorApp.reviewedBy = req.user._id;
+        tutorApp.reviewedAt = new Date();
+        await tutorApp.save({ session });
       }
     }
 
@@ -245,6 +291,21 @@ const rejectUser = asyncHandler(async (req, res) => {
     user.rejectedBy = req.user.id;
 
     await user.save({ session });
+
+    // Sync rejection with any pending tutor application
+    const pendingApp = await TutorApplication.findOne({
+      $or: [{ user: user._id }, { email: user.email }],
+      status: { $in: ["pending", "under_review", "info_requested"] },
+      isDeleted: false,
+    }).session(session);
+
+    if (pendingApp) {
+      pendingApp.status = "rejected";
+      pendingApp.rejectionReason = reason || "Application rejected by admin";
+      pendingApp.reviewedBy = req.user.id;
+      pendingApp.reviewedAt = new Date();
+      await pendingApp.save({ session });
+    }
 
     await session.commitTransaction();
   } catch (error) {

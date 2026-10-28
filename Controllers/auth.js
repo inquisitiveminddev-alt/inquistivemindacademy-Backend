@@ -1,4 +1,5 @@
 const User  = require("../Modals/User");
+const TutorApplication = require("../Modals/TutorApplication");
 const EmailOtp  = require("../Modals/EmailOtp");
 const bcrypt = require("bcryptjs");
 const asyncHandler = require("../Utils/asyncHandler");
@@ -67,28 +68,72 @@ const createUser = asyncHandler(async (req, res) => {
 
   // Create User
   const user = await User.create({
-    fullName,
-    email,
+    fullName: fullName.trim(),
+    email: email.trim().toLowerCase(),
     password: hashedPassword,
     role: role || "student",
+    phone: (req.body.phone || "").trim(),
     emailVerified: true,
     approvalStatus: "pending",
   });
-  await sendEmail({
-  to: ["sachinsingla1995@gmail.com", "inquisitivemindacademy@gmail.com"],
-  subject: "🆕 New User Account Created",
-  html: `
-    <h2>New User Account Created</h2>
 
-    <table border="1" cellpadding="8" cellspacing="0">
-      <tr><td><b>Name</b></td><td>${fullName}</td></tr>
-      <tr><td><b>Email</b></td><td>${email}</td></tr>
-      <tr><td><b>Role</b></td><td>${role}</td></tr>
-    </table>
+  let tutorApplication = null;
+  if ((role || "").toLowerCase() === "teacher") {
+    const {
+      subject,
+      experience,
+      studentLevel,
+      mode,
+      availability = [],
+      timeSlot = [],
+      qualification,
+      city = "",
+      phone = "",
+      bio = "",
+    } = req.body;
 
-    <p><strong>Account Created At:</strong> ${new Date().toLocaleString()}</p>
-  `,
-});
+    tutorApplication = await TutorApplication.create({
+      user: user._id,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: (phone || "").trim(),
+      city: (city || "").trim(),
+      subject: (subject || "General Teacher").trim(),
+      experience: experience || "",
+      studentLevel: studentLevel || "",
+      mode: mode || "Online Classes",
+      availability: Array.isArray(availability) ? availability : [],
+      timeSlot: Array.isArray(timeSlot) ? timeSlot : [],
+      qualification: (qualification || "").trim(),
+      bio: (bio || "").trim(),
+      status: "pending",
+      source: "teacher-registration",
+    });
+  }
+
+  sendEmail({
+    to: ["sachinsingla1995@gmail.com", "inquisitivemindacademy@gmail.com"],
+    subject: `🆕 New ${role === "teacher" ? "Teacher" : "User"} Account Created: ${fullName}`,
+    html: `
+      <h2>New ${role === "teacher" ? "Teacher" : "User"} Account Created</h2>
+
+      <table border="1" cellpadding="8" cellspacing="0">
+        <tr><td><b>Name</b></td><td>${fullName}</td></tr>
+        <tr><td><b>Email</b></td><td>${email}</td></tr>
+        <tr><td><b>Role</b></td><td>${role}</td></tr>
+        ${
+          tutorApplication
+            ? `<tr><td><b>Subject</b></td><td>${tutorApplication.subject}</td></tr>
+               <tr><td><b>Mode</b></td><td>${tutorApplication.mode}</td></tr>
+               <tr><td><b>Experience</b></td><td>${tutorApplication.experience || "N/A"}</td></tr>
+               <tr><td><b>Qualification</b></td><td>${tutorApplication.qualification || "N/A"}</td></tr>`
+            : ""
+        }
+      </table>
+
+      <p><strong>Account Created At:</strong> ${new Date().toLocaleString()}</p>
+    `,
+  });
 
   return res.status(201).json({
     success: true,
@@ -100,10 +145,10 @@ const createUser = asyncHandler(async (req, res) => {
       email: user.email,
       role: user.role,
       approvalStatus: user.approvalStatus,
+      applicationId: tutorApplication?._id,
     },
   });
 });
-
 
 // Generate 6-digit OTP
 const generateOtp = () => {
