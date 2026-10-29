@@ -22,6 +22,7 @@ const TEACHER_FIELDS = [
   "bio",
   "availability",
   "timeSlot",
+  "headline",
 ];
 
 /**
