@@ -13,6 +13,7 @@ const {
   getallClasses,
   getallAnnouncement,
   deleteUserByAdmin,
+  createStudentByAdmin,
 } = require("../Controllers/admin");
 
 const {
@@ -58,6 +59,7 @@ router.patch("/user/:id/block", protect, authorize("admin"), blockUser);
 router.patch("/user/:id/unblock", protect, authorize("admin"), unblockUser);
 router.patch("/user/:id/update", protect, authorize("admin"), updateUserByAdmin);
 router.delete("/user/:id", protect, authorize("admin"), deleteUserByAdmin);
+router.post("/student/create", protect, authorize("admin"), createStudentByAdmin);
 router.patch("/teacher/:id/update", protect, authorize("admin"), updateTeacherByAdmin);
 
 // Tutor Applications routes

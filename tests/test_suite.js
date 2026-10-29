@@ -1,3 +1,4 @@
+require("dotenv").config();
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -210,4 +211,35 @@ test("Schema Defaults — TutorMatch unique compound index", () => {
   assert.equal(match.status, "suggested");
   assert.equal(match.score, 85);
   assert.equal(match.reasons.length, 2);
+});
+
+test("Teacher Controller — Exports Required Portal Methods", () => {
+  const teacherCtrl = require("../Controllers/teacher");
+  assert.equal(typeof teacherCtrl.getTeacherBatches, "function");
+  assert.equal(typeof teacherCtrl.getTeacherClasses, "function");
+  assert.equal(typeof teacherCtrl.getTeacherStudents, "function");
+  assert.equal(typeof teacherCtrl.getTeacherStats, "function");
+  assert.equal(typeof teacherCtrl.getTeacherCourses, "function");
+  assert.equal(typeof teacherCtrl.updateProfile, "function");
+});
+
+test("Admin Controller — Exports createStudentByAdmin", () => {
+  const adminCtrl = require("../Controllers/admin");
+  assert.equal(typeof adminCtrl.createStudentByAdmin, "function");
+});
+
+test("Route Configurations — Teacher and Admin Routes Loaded Cleanly", () => {
+  const teacherRouter = require("../Routes/teacher");
+  const adminRouter = require("../Routes/admin");
+  const studentRouter = require("../Routes/student");
+  const batchesRouter = require("../Routes/batches");
+  const classLinkRouter = require("../Routes/classLink");
+  const noteRouter = require("../Routes/note");
+
+  assert.equal(typeof teacherRouter, "function");
+  assert.equal(typeof adminRouter, "function");
+  assert.equal(typeof studentRouter, "function");
+  assert.equal(typeof batchesRouter, "function");
+  assert.equal(typeof classLinkRouter, "function");
+  assert.equal(typeof noteRouter, "function");
 });

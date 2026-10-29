@@ -975,6 +975,108 @@ const updateTeacherByAdmin = asyncHandler(async (req, res) => {
   }
 });
 
+
+const createStudentByAdmin = asyncHandler(async (req, res) => {
+  const {
+    firstName,
+    lastName,
+    fullName: rawFullName,
+    email,
+    password,
+    phone,
+    gender,
+    dateOfBirth,
+    courseId,
+    batchId,
+  } = req.body;
+
+  const fullName = (rawFullName || `${firstName || ""} ${lastName || ""}`).trim();
+
+  if (!fullName || !email) {
+    return res.status(400).json({
+      success: false,
+      message: "Student name and email are required.",
+    });
+  }
+
+  const existingUser = await User.findOne({ email: email.trim().toLowerCase(), isDeleted: false });
+  if (existingUser) {
+    return res.status(409).json({
+      success: false,
+      message: "A user already exists with this email address.",
+    });
+  }
+
+  const studentPassword = password || "Student@123";
+  const hashedPassword = await bcrypt.hash(studentPassword, 10);
+
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+
+    const createdUsers = await User.create(
+      [
+        {
+          fullName,
+          email: email.trim().toLowerCase(),
+          password: hashedPassword,
+          role: "student",
+          phone: (phone || "").trim(),
+          emailVerified: true,
+          approvalStatus: "approved",
+          approvedBy: req.user._id,
+          approvedAt: new Date(),
+          status: "active",
+        },
+      ],
+      { session }
+    );
+
+    const user = createdUsers[0];
+
+    await Student.create(
+      [
+        {
+          user: user._id,
+          gender: gender || "",
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+          status: "active",
+        },
+      ],
+      { session }
+    );
+
+    if (batchId && mongoose.Types.ObjectId.isValid(batchId)) {
+      await Batch.updateOne(
+        { _id: batchId, isDeleted: false },
+        { $addToSet: { students: user._id } },
+        { session }
+      );
+    }
+
+    await session.commitTransaction();
+
+    return res.status(201).json({
+      success: true,
+      message: "Student account created and approved successfully.",
+      user: {
+        _id: user._id,
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        approvalStatus: user.approvalStatus,
+      },
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
+});
+
 module.exports = {
-  getUsers,approveUser,getallClasses,getallAnnouncement,deleteUserByAdmin ,getRecentEnrollments,rejectUser,blockUser,unblockUser,getUserById,updateUserByAdmin,getDashboardStats,updateTeacherByAdmin
+  getUsers,approveUser,getallClasses,getallAnnouncement,deleteUserByAdmin, createStudentByAdmin, getRecentEnrollments,rejectUser,blockUser,unblockUser,getUserById,updateUserByAdmin,getDashboardStats,updateTeacherByAdmin
 };

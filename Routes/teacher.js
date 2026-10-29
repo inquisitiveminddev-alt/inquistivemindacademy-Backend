@@ -7,6 +7,10 @@ const {
   updateProfile,
   getTeacherById,
   getTeacherCourses,
+  getTeacherBatches,
+  getTeacherClasses,
+  getTeacherStudents,
+  getTeacherStats,
   getPublicTutors,
   getPublicTutorById,
 } = require("../Controllers/teacher");
@@ -23,6 +27,38 @@ router.get(
   protect,
   authorize("teacher"),
   getMyProfile
+);
+
+// Get logged-in teacher's stats
+router.get(
+  "/me/stats",
+  protect,
+  authorize("teacher"),
+  getTeacherStats
+);
+
+// Get logged-in teacher's batches
+router.get(
+  "/me/batches",
+  protect,
+  authorize("teacher"),
+  getTeacherBatches
+);
+
+// Get logged-in teacher's live classes
+router.get(
+  "/me/classes",
+  protect,
+  authorize("teacher"),
+  getTeacherClasses
+);
+
+// Get logged-in teacher's assigned students
+router.get(
+  "/me/students",
+  protect,
+  authorize("teacher"),
+  getTeacherStudents
 );
 
 // Get logged-in teacher's courses

@@ -6,6 +6,7 @@ const { getMyProfile, updateProfile, getStudentBatches, getStudentNotes, getStud
 
 const router = express.Router();
 router.get('/me',protect,authorize("student"),getMyProfile)
+router.get('/batches',protect,authorize("student"),getStudentBatches)
 router.get('/:studentId/batches',protect,authorize("student"),getStudentBatches)
 router.get('/:batchId/notes',protect,authorize("student"),getStudentNotes)
 router.get('/:batchId/class-links',protect,authorize("student"),getStudentClassLinks)

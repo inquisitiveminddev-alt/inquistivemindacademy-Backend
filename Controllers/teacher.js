@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const User = require("../Modals/User");
 const Teacher = require("../Modals/Teacher");
+const Batch = require("../Modals/Batches");
+const ClassLink = require("../Modals/ClassLink");
 const asyncHandler = require("../Utils/asyncHandler");
 
 // Fields stored in the User model
@@ -264,17 +266,29 @@ const getTeacherCourses = asyncHandler(async (req, res) => {
     isDeleted: false,
   }).populate("courses");
 
-  if (!teacher) {
-    return res.status(404).json({
-      success: false,
-      message: "Teacher not found.",
+  const batches = await Batch.find({
+    trainers: req.user._id,
+    isDeleted: false,
+  }).populate("course");
+
+  const courseMap = new Map();
+  if (teacher && teacher.courses) {
+    teacher.courses.forEach((c) => {
+      if (c && c._id) courseMap.set(c._id.toString(), c);
     });
   }
+  batches.forEach((b) => {
+    if (b.course && b.course._id && !courseMap.has(b.course._id.toString())) {
+      courseMap.set(b.course._id.toString(), b.course);
+    }
+  });
+
+  const courses = Array.from(courseMap.values());
 
   return res.status(200).json({
     success: true,
-    count: teacher.courses.length,
-    courses: teacher.courses,
+    count: courses.length,
+    courses,
   });
 });
 
@@ -392,11 +406,140 @@ const getPublicTutorById = asyncHandler(async (req, res) => {
   });
 });
 
+
+// GET: Batches assigned to the logged-in teacher
+const getTeacherBatches = asyncHandler(async (req, res) => {
+  const batches = await Batch.find({
+    trainers: req.user._id,
+    isDeleted: false,
+  })
+    .populate("course", "title slug category level duration thumbnail")
+    .populate("students", "fullName email")
+    .sort("-createdAt");
+
+  return res.status(200).json({
+    success: true,
+    count: batches.length,
+    batches,
+  });
+});
+
+// GET: Scheduled / upcoming live classes for batches assigned to the teacher
+const getTeacherClasses = asyncHandler(async (req, res) => {
+  const batches = await Batch.find({
+    trainers: req.user._id,
+    isDeleted: false,
+  }).select("_id name schedule meetingPlatform");
+
+  const batchIds = batches.map((b) => b._id);
+
+  const classes = await ClassLink.find({
+    batch: { $in: batchIds },
+    isDeleted: false,
+  })
+    .populate("batch", "name schedule meetingPlatform")
+    .populate("createdBy", "fullName")
+    .sort({ meetingDate: 1 });
+
+  return res.status(200).json({
+    success: true,
+    count: classes.length,
+    classes,
+  });
+});
+
+// GET: Enrolled students across batches assigned to the teacher (protect sensitive info)
+const getTeacherStudents = asyncHandler(async (req, res) => {
+  const batches = await Batch.find({
+    trainers: req.user._id,
+    isDeleted: false,
+  })
+    .populate("course", "title slug")
+    .populate("students", "fullName email profileImage createdAt");
+
+  const studentMap = new Map();
+
+  batches.forEach((batch) => {
+    (batch.students || []).forEach((student) => {
+      if (student && student._id) {
+        const studentId = student._id.toString();
+        const batchInfo = {
+          _id: batch._id,
+          name: batch.name,
+          course: batch.course?.title || "Language Course",
+        };
+
+        if (!studentMap.has(studentId)) {
+          studentMap.set(studentId, {
+            _id: student._id,
+            id: student._id,
+            fullName: student.fullName,
+            email: student.email,
+            profileImage: student.profileImage,
+            joinedAt: student.createdAt,
+            batches: [batchInfo],
+          });
+        } else {
+          studentMap.get(studentId).batches.push(batchInfo);
+        }
+      }
+    });
+  });
+
+  const students = Array.from(studentMap.values());
+
+  return res.status(200).json({
+    success: true,
+    count: students.length,
+    students,
+  });
+});
+
+// GET: Summary metrics for logged-in teacher dashboard
+const getTeacherStats = asyncHandler(async (req, res) => {
+  const batches = await Batch.find({
+    trainers: req.user._id,
+    isDeleted: false,
+  }).select("_id students course");
+
+  const batchIds = batches.map((b) => b._id);
+
+  const studentIdSet = new Set();
+  batches.forEach((b) => {
+    (b.students || []).forEach((s) => {
+      if (s) studentIdSet.add(s.toString());
+    });
+  });
+
+  const classesCount = await ClassLink.countDocuments({
+    batch: { $in: batchIds },
+    isDeleted: false,
+  });
+
+  const courseIdSet = new Set(
+    batches.map((b) => b.course?.toString()).filter(Boolean)
+  );
+
+  return res.status(200).json({
+    success: true,
+    stats: {
+      batches: batches.length,
+      classes: classesCount,
+      students: studentIdSet.size,
+      courses: courseIdSet.size,
+    },
+  });
+});
+
 module.exports = {
   getMyProfile,
   updateProfile,
   getTeacherById,
   getTeacherCourses,
+  getTeacherBatches,
+  getTeacherClasses,
+  getTeacherStudents,
+  getTeacherStats,
   getPublicTutors,
   getPublicTutorById,
   serializePublicTeacher,
